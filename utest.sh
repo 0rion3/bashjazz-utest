@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# We could've included $BASHJAZZ_PATH/utils/colors.sh, but
+# this would've added an unnecessary dependency for such a small
+# thing as adding colors.
 Red='\e[0;31m'
 Green='\e[0;32m'
 Dim='\033[2m'
@@ -8,22 +11,22 @@ BGreen='\033[1;32m'
 Bold='\e[1m'
 ColorOff='\e[0m'
 
-declare -g UTOUT
+declare -g  UTOUT
 declare -g  CURRENT_UTEST_INDENT=0
-declare -ga CURRENT_UTESTS=()
 declare -g  CURRENT_TEST_CMDS=""
-declare -g ASSERTION_COUNTER=0
-declare -g ASSERTION_RESULTS=""
+declare -g  ASSERTION_COUNTER=0
+declare -g  ASSERTION_RESULTS=""
+declare -ga UTESTS=()
 
 utest() {
 
   begin() {
 
     utest_name="$1"
-    CURRENT_UTESTS+=( $utest_name )
+    UTESTS+=( $utest_name )
     shift
 
-    if [[ ${#CURRENT_UTESTS} -gt 1 ]] && [[ $ASSERTION_COUNTER == "0" ]]; then
+    if [[ ${#UTESTS} -gt 1 ]] && [[ $ASSERTION_COUNTER == "0" ]]; then
       echo ""
     fi
 
@@ -42,11 +45,8 @@ utest() {
   }
 
   # Tests may be nested, so we need to keep an array of test names running,
-  # so that when end() is called, it removes the name that matches the first
-  # [only and optional] positional argument to this function. If the
-  # argument isn't passed, the last element of the array is removed,
-  # which would indicate that the currently running unit test had been
-  # completed.
+  # so that when end() is called, it removes the last one and resets variables.
+  # This indicates the current "begin" section has been completed.
   end() {
     utest_name=$1
 
@@ -55,7 +55,8 @@ utest() {
       ASSERTION_RESULTS="\n${CURRENT_UTEST_INDENT_STR}  $ASSERTION_RESULTS"
       echo -e "$ASSERTION_RESULTS" | \
         sed "s/;;;/\n/g"
-    # Single assertion inside the unitt test
+    # Single assertion inside the unit test, so no need to enumerate each
+    # and print out the result of each assertion on a separate line.
     else
       echo -e "$ASSERTION_RESULTS" | sed -E 's/assertion [0-9]+ -> / -> /g'
     fi
@@ -66,12 +67,16 @@ utest() {
     UTOUT=""
     unset CURRENT_TEST_CMDS
     unset ASSERTION_RESULTS
-    CURRENT_UTESTS=( "$(echo "${CURRENT_UTESTS[@]}" | sed -E 's/[^ ]+$//')" )
 
-    local first_utest="$( echo "${CURRENT_UTESTS[0]}" | xargs)"
-    if [[ "${#CURRENT_UTESTS[@]}" -eq "0" ]]; then 
+    # Removes the last element of the UTESTS arr
+    UTESTS=( "$(echo "${UTESTS[@]}" | sed -E 's/[^ ]+$//')" )
+
+    local first_utest="$( echo "${UTESTS[0]}" | xargs)"
+    if [[ "${#UTESTS[@]}" -eq "0" ]]; then 
       echo ""
     fi
+
+    return ${UTEST_STATUS:-"0"}
 
   }
 
@@ -163,6 +168,9 @@ utest() {
     }
 
     assertion_result="$($assertion_name "$returned" "$expected")"
+
+    if [[ $? == "1" ]]; then UTEST_STATUS=1; fi
+
     if test -n "$ASSERTION_RESULTS"; then
       ASSERTION_RESULTS+=";;;  $CURRENT_UTEST_INDENT_STR"
     fi
