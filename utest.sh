@@ -6,15 +6,19 @@
 Red='\e[0;31m'
 Green='\e[0;32m'
 Dim='\033[2m'
+Yellow='\e[33m'
+Blue='\e[34m'
 BRed='\033[1;31m'
 BGreen='\033[1;32m'
+BYellow='\033[1;33m'
 Bold='\e[1m'
 ColorOff='\e[0m'
-SP_SYMBOL="␠"
-NBSP="$(echo -e "\u00A0")"
+#SP_SYMBOL="␠"
+#NBSP="$(echo -e "\u00A0")"
 
 declare -g  UTOUT
 declare -g  CURRENT_UTEST_INDENT=0
+declare -g  STANDARD_INDENT_NUMBER=4
 declare -g  ASSERTION_COUNTER=0
 declare -g  ASSERTION_RESULTS=""
 declare -g  CURRENT_TEST_CMDS=""
@@ -22,9 +26,11 @@ declare -ga UTESTS=()
 
 utest() {
 
+  STANDARD_INDENT_NUMBER=4
+
   begin() {
 
-    utest_name="$1"
+    utest_name=$1
     UTESTS+=( $utest_name )
     shift
 
@@ -35,7 +41,7 @@ utest() {
     ASSERTION_RESULTS=""
     ASSERTION_COUNTER=0
 
-    CURRENT_UTEST_INDENT=$((CURRENT_UTEST_INDENT+4))
+    CURRENT_UTEST_INDENT=$((CURRENT_UTEST_INDENT+STANDARD_INDENT_NUMBER))
     CURRENT_UTEST_INDENT_STR="$(printf %${CURRENT_UTEST_INDENT}s)"
 
     if [[ -n $PRINT_DESCRIPTIONS ]]; then
@@ -73,15 +79,18 @@ utest() {
     unset ASSERTION_RESULTS
 
     # Removes the last element of the UTESTS arr
-    UTESTS=( "$(echo "${UTESTS[@]}" | sed -E 's/[^ ]+$//')" )
+    unset UTESTS[-1]
 
-    local first_utest="$( echo "${UTESTS[0]}" | xargs)"
-    if [[ "${#UTESTS[@]}" -eq "0" ]]; then 
-      echo ""
+    if [[ "${#UTESTS[@]}" -eq 0 ]]; then
+      finished_callback
     fi
 
     return ${UTEST_STATUS:-"0"}
 
+  }
+
+  finished_callback() {
+    test -z $DISABLE_UTEST_DONATION_MSG && _print_donation_msg
   }
 
   # Runs arbitrary command and captures its output.
@@ -112,13 +121,6 @@ utest() {
   }
 
   add_cmd() {
-    # Even though we use quotations marks when adding an item to an Array,
-    # apparently that's not enough and SPACE characters must be replaced with
-    # a non-breaking space character defined at the top in the $SP_SYMBOL
-    # variable. Its value is set to "␠" (stored in $SP_SYMBOL variable
-    # defined at the top of this script - which is a Unicode for
-    # character for representing SPACE. It's later replaced with 
-    # the actual SPACE character in cmd() before running each command.
     if [[ -n "$CURRENT_TEST_CMDS" ]]; then
       CURRENT_TEST_CMDS+=" && "
     fi
@@ -219,6 +221,28 @@ utest() {
       ASSERTION_RESULTS+=";;;  $CURRENT_UTEST_INDENT_STR"
     fi
     ASSERTION_RESULTS+="${ASSERTION_NAME} -> $assertion_result"
+  }
+
+  _print_donation_msg() {
+    INDENT_STR="$(printf %${STANDARD_INDENT_NUMBER}s)"
+    echo -en "${INDENT_STR}${Yellow}"
+    echo "------------ Donate if you like this project ------------------"
+    echo -en "${ColorOff}"
+    echo "${INDENT_STR}If you find this or any of the other BASHJAZZ projects useful,"
+    echo "${INDENT_STR}please donate to this Bitcoin address:"
+    echo -en "\n${INDENT_STR}${INDENT_STR}${BYellow}"
+    echo "bc1q3a3m5dtkhfv5gc9vvdsrevr053pxhkehvrc7m9"
+    echo -en "\n${ColorOff}"
+    echo "${INDENT_STR}To donate with other cryptocurrencies or via an international"
+    echo "${INDENT_STR}wire transfer, see this page for details and contact info:"
+    echo -en "${Blue}${INDENT_STR}"
+    echo -e "https://bashjazz.orion3.space/donate.html"
+    echo -en "${Yellow}${INDENT_STR}"
+    echo -e "---------------------------------------------------------------"
+    echo -en "${ColorOff}${Dim}"
+    echo -e "${INDENT_STR}To get rid of this message, add DISABLE_UTEST_DONATION_MSG=1"
+    echo -e "${INDENT_STR}to your shell's environment file (.bashrc, .zshrc etc.)"
+    echo -e "${ColorOff}"
   }
 
   local function_name=$1
