@@ -2,8 +2,12 @@
 source utest.sh
 source example.sh
 
-echo 'If everything is correct, running this file should result in only one
-test failing, due to usage of decimal numbers instead of integers.'
+echo '––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––'
+echo "BASHJAZZ UTETS EXAMPLE"
+echo "----------------------------------------------------------------------"
+echo -e "If everything is correct, running this file should result in only one
+test failing, due to usage of decimal numbers instead of integers."
+echo "----------------------------------------------------------------------"
 
 utest begin Example 'An example test-suite for the rather useless example.sh'
 
@@ -11,14 +15,14 @@ utest begin Example 'An example test-suite for the rather useless example.sh'
   # between the nested "begin" blocks".
   utest begin print_hello 'Simply prints hello world'
     utest cmd Example -c print_hello
-    utest assert "$UTOUT" '==' 'hello  world'
+    utest assert "$UTOUT" == 'hello world'
   utest end print_hello
 
   utest begin print_custom_hello \
     'Demonstrates the use of add_cmd() and prints $MAIN_GREETING along with an
     additional argument'
     utest add_cmd Example -c print_hello
-    utest add_cmd Example -c print_custom_hello "and welcome"
+    utest add_cmd Example -c print_custom_hello 'and welcome'
     utest cmd
     utest assert "$UTOUT" == 'hello world and welcome'
   utest end print_hello
@@ -30,7 +34,7 @@ utest begin Example 'An example test-suite for the rather useless example.sh'
     utest assert $UTOUT == 4
   utest end add
 
-  utest begin add 'Multiplies two integers and prints out the result'
+  utest begin multiply 'multiplies two integers and prints out the result'
     utest cmd Example -c multiply 1 2
     utest assert $UTOUT == 2
     utest cmd Example -c multiply 2 2

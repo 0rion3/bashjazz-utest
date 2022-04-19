@@ -10,13 +10,15 @@ BRed='\033[1;31m'
 BGreen='\033[1;32m'
 Bold='\e[1m'
 ColorOff='\e[0m'
+SP_SYMBOL="␠"
+NBSP="$(echo -e "\u00A0")"
 
 declare -g  UTOUT
 declare -g  CURRENT_UTEST_INDENT=0
 declare -g  ASSERTION_COUNTER=0
 declare -g  ASSERTION_RESULTS=""
+declare -g  CURRENT_TEST_CMDS=""
 declare -ga UTESTS=()
-declare -ga CURRENT_TEST_CMDS=()
 
 utest() {
 
@@ -37,8 +39,10 @@ utest() {
     CURRENT_UTEST_INDENT_STR="$(printf %${CURRENT_UTEST_INDENT}s)"
 
     if [[ -n $PRINT_DESCRIPTIONS ]]; then
+      local description="$(echo "${@}" | xargs | \
+        fmt -w 80 | sed "s/^/$CURRENT_UTEST_INDENT_STR/")"
       echo -e "\n${CURRENT_UTEST_INDENT_STR}${Bold}${utest_name}${ColorOff}"
-      echo -en "${CURRENT_UTEST_INDENT_STR}${Dim}$@${ColorOff}"
+      echo -en "${Dim}$description${ColorOff}"
     else
       echo -en "${CURRENT_UTEST_INDENT_STR}${Bold}${utest_name}${ColorOff}"
     fi
@@ -84,13 +88,10 @@ utest() {
   # into the global variable $UTOUT. May be used many times
   # in between begin() and end() calls.
   cmd() {
-    if [[ -n "$@" ]]; then
-      UTOUT="$("$@" 2>&1)"
+    if [[ -n "${@}" ]]; then
+      UTOUT="$("${@}" 2>&1)"
     else
-      for _cmd in "${CURRENT_TEST_CMDS[@]}"; do
-        echo "-> $_cmd"
-        UTOUT="$("$_cmd" 2>&1)"
-      done
+      UTOUT="$(run_in_the_same_context "$CURRENT_TEST_CMDS")"
     fi
 
     if [[ $? != 0 ]]; then
@@ -102,10 +103,26 @@ utest() {
     fi
   }
 
+  run_in_the_same_context() {
+    local out
+    local last_cmd="$(echo "${@}" | grep -oE ' && .*$' | sed 's/ && //')"
+    local other_cmds="$(echo "${@}" | sed 's/ \&\& .*$//')"
+    $other_cmds 1> /dev/null
+    $last_cmd
+  }
+
   add_cmd() {
-    local _cmd=$1
-    shift
-    CURRENT_TEST_CMDS+=( "$_cmd ${@}" )
+    # Even though we use quotations marks when adding an item to an Array,
+    # apparently that's not enough and SPACE characters must be replaced with
+    # a non-breaking space character defined at the top in the $SP_SYMBOL
+    # variable. Its value is set to "␠" (stored in $SP_SYMBOL variable
+    # defined at the top of this script - which is a Unicode for
+    # character for representing SPACE. It's later replaced with 
+    # the actual SPACE character in cmd() before running each command.
+    if [[ -n "$CURRENT_TEST_CMDS" ]]; then
+      CURRENT_TEST_CMDS+=" && "
+    fi
+    CURRENT_TEST_CMDS+="${@}"
   }
 
   assert() {
@@ -123,14 +140,17 @@ utest() {
     _get_value_type() {
       if [[ "$1" =~ ^[0-9]+$ ]]; then
         echo integer
-      else
+      elif [[ "$1" != "[null]" ]]; then
         echo string
+      else
+        echo "null"
       fi
     }
 
     local returned="$1"
     local assertion_name="$2"
-    local expected="$3"
+    shift 2
+    local expected="${@}"
     expected="${expected:-␀}"
 
     local expected_value_type=$(_get_value_type "$expected")
@@ -148,11 +168,24 @@ utest() {
       }
 
       print_error() {
+
+        if [[ "$expected_value_type" == "string" ]]; then
+          expected="'${Bold}$expected${ColorOff}'"
+        fi
+
+        if [[ "$returned_value_type" == "string" ]]; then
+          returned="$(echo -en "'${BRed}$returned${ColorOff}'")"
+        fi
+
+        if [[ "$returned_value_type" == "null" ]]; then
+          returned="$(echo -en "${BRed}$returned${ColorOff}")"
+        fi
+
         echo -e "${Red}failed${ColorOff}"
         echo -en "${CURRENT_UTEST_INDENT_STR}  "
-        echo -en "  ${Dim}Expected [$expected_value_type] "
-        echo -en "${ColorOff}value: ${Bold}${expected}${ColorOff}, "
-        echo -en "${Red}got: ${BRed}${returned:-[null]}${ColorOff}"
+        echo -en "  ${Dim}Expected [$expected_value_type]"
+        echo -en " value: ${ColorOff}${Bold}${expected}${ColorOff}, "
+        echo -en "${Red}got:${ColorOff} ${returned}"
       }
 
       if [[ "$expected_value_type" != "$returned_value_type" ]]; then

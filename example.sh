@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+declare -g MAIN_GREETING
+
 Example() {
 
   # For unit-test compliance and allowing to unit-test nested functions,
@@ -9,19 +11,20 @@ Example() {
   # The actual calls will be done after function declarations.
   # Here, we need to to shift the first two argument (-c flag itself and its
   # value.
-  if test $1 = '-c'; then
+  if [[ "$1" == '-c' ]]; then
     local CALL_NESTED="$2"
     shift 2
   fi
 
   # This will pass
   print_hello() {
-    declare -g MAIN_GREETING="hello  world"
+    declare -g MAIN_GREETING="hello world"
     echo "$MAIN_GREETING"
   }
 
+  # This will also pass, building upon the call to print_hello()
   print_custom_hello() {
-    echo "$MAIN_GREETING $1"
+    echo "$MAIN_GREETING ${@}"
   }
 
   # Given existing tests, this function will no fail any of them
@@ -37,6 +40,6 @@ Example() {
 
   # ATTENTION: here the program will exit if the wrong an individual nested 
   # is being called (which would be the case with unit testing).
-  test -n $CALL_NESTED && $CALL_NESTED $@ && exit $?
+  test -n "$CALL_NESTED" && $CALL_NESTED ${@} || return $?
 
 }
