@@ -13,10 +13,10 @@ ColorOff='\e[0m'
 
 declare -g  UTOUT
 declare -g  CURRENT_UTEST_INDENT=0
-declare -g  CURRENT_TEST_CMDS=""
 declare -g  ASSERTION_COUNTER=0
 declare -g  ASSERTION_RESULTS=""
 declare -ga UTESTS=()
+declare -ga CURRENT_TEST_CMDS=()
 
 utest() {
 
@@ -85,18 +85,27 @@ utest() {
   # in between begin() and end() calls.
   cmd() {
     if [[ -n "$@" ]]; then
-      UTOUT="$($@)"
+      UTOUT="$("$@" 2>&1)"
     else
-      local all_cmds="$(echo "$CURRENT_TEST_CMDS" | sed -E 's/ && $//')"
-      UTOUT="$($all_cmds)"
+      for _cmd in "${CURRENT_TEST_CMDS[@]}"; do
+        echo "-> $_cmd"
+        UTOUT="$("$_cmd" 2>&1)"
+      done
+    fi
+
+    if [[ $? != 0 ]]; then
+      if [[ "$UTERR" != "$UTOUT" ]]; then
+        UTERR="$UTOUT"
+        echo -en "\n  ${CURRENT_UTEST_INDENT_STR}${Red}ERROR: $UTERR${ColorOff}"
+      fi
+      UTOUT='[null]'
     fi
   }
 
   add_cmd() {
-    if test -n "$CURRENT_TEST_CMDS"; then
-      local separator=' && '
-    fi
-    CURRENT_TEST_CMDS="${CURRENT_TEST_CMDS}${separator} $@"
+    local _cmd=$1
+    shift
+    CURRENT_TEST_CMDS+=( "$_cmd ${@}" )
   }
 
   assert() {
@@ -119,23 +128,13 @@ utest() {
       fi
     }
 
-    local assertion_name
-    local -a returned
-    local -a expected
+    local returned="$1"
+    local assertion_name="$2"
+    local expected="$3"
+    expected="${expected:-␀}"
 
-    for arg in "${@}"; do
-      if test -z $assertion_name; then
-        if [[ $arg == "==" ]]; then
-          assertion_name="eq"
-        else
-          returned+=( $arg )
-        fi
-      else
-        expected+=( $arg )
-      fi
-    done
-
-    local value_type=$(_get_value_type "$3")
+    local expected_value_type=$(_get_value_type "$expected")
+    local returned_value_type=$(_get_value_type "$returned")
 
     eq() {
 
@@ -148,7 +147,20 @@ utest() {
         test "$1" = "$2"
       }
 
-      if test $value_type = 'integer'; then
+      print_error() {
+        echo -e "${Red}failed${ColorOff}"
+        echo -en "${CURRENT_UTEST_INDENT_STR}  "
+        echo -en "  ${Dim}Expected [$expected_value_type] "
+        echo -en "${ColorOff}value: ${Bold}${expected}${ColorOff}, "
+        echo -en "${Red}got: ${BRed}${returned:-[null]}${ColorOff}"
+      }
+
+      if [[ "$expected_value_type" != "$returned_value_type" ]]; then
+        print_error
+        return 1
+      fi
+
+      if test $expected_value_type = 'integer'; then
         eq_integer "$returned" "$expected"
       else
         eq_string "$returned" "$expected"
@@ -158,15 +170,14 @@ utest() {
         echo -en "${Green}passed${ColorOff}"
         return 0
       else
-        echo -e "${Red}failed${ColorOff}"
-        echo -en "${CURRENT_UTEST_INDENT_STR}  "
-        echo -en "  ${Dim}Expected [$value_type] "
-        echo -en "${ColorOff}value: ${Bold}${expected}${ColorOff}, "
-        echo -en "${Red}got: ${BRed}${returned}${ColorOff}"
+        print_error
         return 1
       fi
     }
 
+    if [[ "$assertion_name" == "==" ]]; then
+      assertion_name="eq"
+    fi
     assertion_result="$($assertion_name "$returned" "$expected")"
 
     if [[ $? == "1" ]]; then UTEST_STATUS=1; fi
@@ -179,6 +190,6 @@ utest() {
 
   local function_name=$1
   shift
-  $function_name $@
+  $function_name "${@}"
 
 }
