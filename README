@@ -2,16 +2,18 @@ UTEST
 -----
 Unit testing for Bash scripts and functions.
 
-With `utest` you can test any program's output, not just Bash, but you
-can also test Bash functions and Bash nested functions. That's what makes
-it especially appealing when writing Bash scripts.
+With `utest` you can test any program's output, not just Bash scripts.
+What makes this library special is that you can also test Bash functions and
+nested functions. It is especially appealing when writing Bash scripts and there's just
+too much...
 
 
 DEPENDENCIES
 ------------
-There are dependencies for utest - you don't even need any other BASHJAZZ
-libraries. Only thing it depends on are: bash >= 4.2, sed and grep. Usage
-of grep and sed are POSIX compatible and should work on all systems.
+Internal:
+  None. No need for any other BashJazz sub-project to be present in your system.
+External:
+  bash >= v4.2, awk, sed, grep.
 
 
 BASIC USAGE
@@ -19,15 +21,14 @@ BASIC USAGE
 Currently, the following usage pattern is considered to be the most
 intuitive one:
 
-  0. Create a file & write the script you're about to test, let's call
-     it "my_script.sh"
+  1. Write the script you're about to test, let's call it "my_script.sh"
 
-  1. Create a test script named "my_script.test.sh" and make it executable:
+  2. Create a test script named "my_script.test.sh" and make it executable:
 
         touch my_script.test.sh
         chmod +x my_script.test.sh
 
-  2. Inside the test-script file, source `utest.sh` from this directory
+  3. Inside the test-script file, source `utest.sh` from this directory
      and then source `my_script.sh` file that you'll be testing.
 
      You can put your test files files in a separate directory, but beware of
@@ -41,9 +42,9 @@ intuitive one:
         source $BASHJAZZ_PATH/utest/utest.sh
         source ../path/to/my_script.sh
 
-     After these lines, you can start adding unit tests.
+     Following these lines, you may start adding your unit tests.
 
-  3. To run your tests, go to the directory where you placed your
+  4. To run your tests, go to the directory where you placed your
      test-script file and use this command 
 
         ./my_script.test.sh
@@ -151,7 +152,7 @@ Then, in your test-script, you can write things such as:
 EXAMPLES
 --------
 
-  Read ./example.sh and ./example.test.sh files in this from this repository
-  and then try running
+Take a look at ./example.sh and ./example.test.sh files from this repository,
+then try running the example test:
 
-      ./example.test.sh
+    ./example.test.sh
