@@ -21,7 +21,7 @@ maintainers and/or contributors are not responsible for any damage it may does
 THINGS NOT CONCERNING LICENSING
 -------------------------------
 When forking, PLEASE CONSIDER leaving the "donation message" which is
-displayed to when a test-script is run.
+displayed on each test-script run.
 
 When the donation message starts to annoy you - by all means, disable it:
 all you have to do is add DISABLE_BASHJAZZ_DONATION_MESSAGE=1 into your shell

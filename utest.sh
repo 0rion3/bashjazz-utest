@@ -90,7 +90,7 @@ utest() {
   }
 
   finished_callback() {
-    test -z $DISABLE_UTEST_DONATION_MSG && _print_donation_msg
+    test -z $DISABLE_BASHJAZZ_DONATION_MSG && _print_donation_msg
   }
 
   # Runs arbitrary command and captures its output.
@@ -231,7 +231,7 @@ utest() {
     echo "${INDENT_STR}If you find this or any of the other BASHJAZZ projects useful,"
     echo "${INDENT_STR}please donate to this Bitcoin address:"
     echo -en "\n${INDENT_STR}${INDENT_STR}${BYellow}"
-    echo "bc1q3a3m5dtkhfv5gc9vvdsrevr053pxhkehvrc7m9"
+    echo "36GN5qTZUaRmQA2fwAycuzyVwgF2AvJqbB"
     echo -en "\n${ColorOff}"
     echo "${INDENT_STR}To donate with other cryptocurrencies or via an international"
     echo "${INDENT_STR}wire transfer, see this page for details and contact info:"
