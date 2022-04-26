@@ -63,6 +63,12 @@ optional):
   * utest cmd [COMMAND] [ARGUMENTS]
   * utest add_cmd [COMMAND] [ARGUMENTS]
   * utest assert VALUE1 == VALUE2
+  * utest assert VALUE1 eq VALUE2    (identical previous line)
+  * utest assert VALUE1 == ''
+  * utest assert VALUE1 is blank     (identical previous line)
+  * utest assert VALUE1 not == ''
+  * utest assert VALUE1 not eq ''    (identical previous line)
+  * utest assert VALUE1 is_not blank (identical previous line)
   * utest end [NAME]
 
   NOTE:

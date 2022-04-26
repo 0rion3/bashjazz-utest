@@ -27,6 +27,10 @@ Example() {
     echo "$MAIN_GREETING ${@}"
   }
 
+  print_back() {
+    echo -n "${@}"
+  }
+
   # Given existing tests, this function will no fail any of them
   add() {
     echo $(($1+$2))
@@ -40,6 +44,6 @@ Example() {
 
   # ATTENTION: here the program will exit if the wrong an individual nested 
   # is being called (which would be the case with unit testing).
-  test -n "$CALL_NESTED" && $CALL_NESTED ${@} || return $?
+  test -n "$CALL_NESTED" && $CALL_NESTED "${@}" || return $?
 
 }

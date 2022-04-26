@@ -11,12 +11,15 @@ Blue='\e[34m'
 BRed='\033[1;31m'
 BGreen='\033[1;32m'
 BYellow='\033[1;33m'
-Bold='\e[1m'
+Bold=$(tput bold)
+Normal=$(tput sgr0)
 ColorOff='\e[0m'
-#SP_SYMBOL="␠"
-#NBSP="$(echo -e "\u00A0")"
+
+NULL_SYM='␀'
+NBSP=' '
 
 declare -g  UTOUT
+declare -g  UTERR
 declare -g  CURRENT_UTEST_INDENT=0
 declare -g  STANDARD_INDENT_NUMBER=4
 declare -g  ASSERTION_COUNTER=0
@@ -103,12 +106,16 @@ utest() {
       UTOUT="$(run_in_the_same_context "$CURRENT_TEST_CMDS")"
     fi
 
-    if [[ $? != 0 ]]; then
+    local cmd_result=$?
+    UTOUT="${UTOUT:-"$NULL_SYM"}"
+
+    if [ $cmd_result -gt 0 ]; then
       if [[ "$UTERR" != "$UTOUT" ]]; then
         UTERR="$UTOUT"
-        echo -en "\n  ${CURRENT_UTEST_INDENT_STR}${Red}ERROR: $UTERR${ColorOff}"
+        echo -e "\n  ${CURRENT_UTEST_INDENT_STR}${Red}ERROR:"
+        echo -e "    ${CURRENT_UTEST_INDENT_STR}$UTERR${ColorOff}"
       fi
-      UTOUT='[null]'
+      UTOUT="$NULL_SYM"
     fi
   }
 
@@ -150,17 +157,60 @@ utest() {
     }
 
     local returned="$1"
-    local assertion_name="$2"
-    shift 2
-    local expected="${@}"
-    expected="${expected:-␀}"
+    shift
+
+    if [[ "$1" == "not_to" ]]; then
+      local invert=' --invert '
+      shift
+    fi
+
+    local assertion_name="$1"
+    shift
+    local expected="$@"
 
     local expected_value_type=$(_get_value_type "$expected")
     local returned_value_type=$(_get_value_type "$returned")
 
+    print_error() {
+
+      # $verb could be "to be" or "not to be". Shakespeare here people!
+      #
+      # (but it could technically it can be anything,
+      # for instance "to include" or "not to include").
+      verb="${@}"
+
+      if [[ "$expected_value_type" == "string" ]]; then
+        expected="'${Bold}$expected${ColorOff}'"
+      fi
+
+      if [[ "$returned_value_type" == "string" ]]; then
+        returned="$(echo -en "'${BRed}$returned${ColorOff}'")"
+      fi
+
+      if [[ "$returned_value_type" == "null" ]]; then
+        returned="$(echo -en "${BRed}$returned${ColorOff}")"
+      fi
+
+      echo -e "${Red}failed${ColorOff}"
+      echo -en "${CURRENT_UTEST_INDENT_STR}  "
+      echo -en "  ${Dim}Expected [$returned_value_type]"
+      echo -en " value: ${ColorOff}${returned}${ColorOff} "
+      echo -en "${Red}${verb}:${ColorOff} ${expected}${ColorOff}"
+      echo -en "${Dim} [$expected_value_type]${ColorOff}"
+    }
+
+    print_passed() {
+      echo -en "${Green}passed${ColorOff}"
+    }
+
     eq() {
 
       local result
+
+      if [[ "$1" = "--invert" ]]; then
+        local negation="NOT "
+        shift
+      fi
 
       eq_integer() {
         test $1 -eq $2
@@ -169,53 +219,52 @@ utest() {
         test "$1" = "$2"
       }
 
-      print_error() {
-
-        if [[ "$expected_value_type" == "string" ]]; then
-          expected="'${Bold}$expected${ColorOff}'"
+      if test "$expected_value_type" != "$returned_value_type"; then
+        if [[ -z "$negation" ]];  then
+          print_error "TYPE to be"
+          return 1
         fi
-
-        if [[ "$returned_value_type" == "string" ]]; then
-          returned="$(echo -en "'${BRed}$returned${ColorOff}'")"
-        fi
-
-        if [[ "$returned_value_type" == "null" ]]; then
-          returned="$(echo -en "${BRed}$returned${ColorOff}")"
-        fi
-
-        echo -e "${Red}failed${ColorOff}"
-        echo -en "${CURRENT_UTEST_INDENT_STR}  "
-        echo -en "  ${Dim}Expected [$expected_value_type]"
-        echo -en " value: ${ColorOff}${Bold}${expected}${ColorOff}, "
-        echo -en "${Red}got:${ColorOff} ${returned}"
-      }
-
-      if [[ "$expected_value_type" != "$returned_value_type" ]]; then
-        print_error
-        return 1
       fi
 
       if test $expected_value_type = 'integer'; then
         eq_integer "$returned" "$expected"
       else
+        if [[ $expected == "blank" ]] || [[ $expected == "empty" ]]; then
+          expected=""
+        fi
+        test "$returned" == '␀' && returned=''
         eq_string "$returned" "$expected"
       fi
 
-      if [[ $? == '0' ]]; then
-        echo -en "${Green}passed${ColorOff}"
-        return 0
+      cmd_result="$?"
+
+      if [[ $cmd_result == "0" ]] && [[ -z "$negation" ]]; then
+        print_passed
+      elif [[ $cmd_result != "0" ]] && [[ -n "$negation" ]]; then
+        print_passed
       else
-        print_error
+        print_error "${negation}to be equal to"
         return 1
       fi
     }
 
+    is() {
+      eq "$@"
+    }
+
+    is_not() {
+      eq --invert "$@"
+    }
+
+    if [[ -n "$UTERR" ]]; then exit 1; fi
+
     if [[ "$assertion_name" == "==" ]]; then
       assertion_name="eq"
     fi
-    assertion_result="$($assertion_name "$returned" "$expected")"
 
-    if [[ $? == "1" ]]; then UTEST_STATUS=1; fi
+    local assertion_result="$($assertion_name $invert "$returned" "$expected")"
+
+    if [ $? -gt 0 ]; then UTEST_STATUS=1; fi
 
     if test -n "$ASSERTION_RESULTS"; then
       ASSERTION_RESULTS+=";;;  $CURRENT_UTEST_INDENT_STR"
