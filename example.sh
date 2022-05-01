@@ -4,17 +4,8 @@ declare -g MAIN_GREETING
 
 Example() {
 
-  # For unit-test compliance and allowing to unit-test nested functions,
-  # (but can also be used in other cases we allow to call each individual
-  # function from the nested functions. For this to work,
-  # the first argument should be -c function_name (-c stands for 'call').
-  # The actual calls will be done after function declarations.
-  # Here, we need to to shift the first two argument (-c flag itself and its
-  # value.
-  if [[ "$1" == '-c' ]]; then
-    local CALL_NESTED="$2"
-    shift 2
-  fi
+  local CALL_NESTED="$1"
+  shift
 
   # This will pass
   print_hello() {

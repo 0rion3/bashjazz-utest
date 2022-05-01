@@ -16,7 +16,6 @@ Normal=$(tput sgr0)
 ColorOff='\e[0m'
 
 NULL_SYM='␀'
-NBSP=' '
 
 declare -g  UTOUT
 declare -g  UTERR
@@ -62,6 +61,7 @@ utest() {
   # This indicates the current "begin" section has been completed.
   end() {
     utest_name=$1
+    pending=$2
 
     # Multiple assertions inside the unit test
     if [[ "$ASSERTION_RESULTS" == *";;;"* ]]; then
@@ -70,6 +70,8 @@ utest() {
         sed "s/;;;/\n/g"
     # Single assertion inside the unit test, so no need to enumerate each
     # and print out the result of each assertion on a separate line.
+    elif [[ -n "$pending" ]]; then
+      echo -en " -> ${Yellow}pending${ColorOff}"
     else
       echo -e "$ASSERTION_RESULTS" | sed -E 's/assertion [0-9]+ -> / -> /g'
     fi

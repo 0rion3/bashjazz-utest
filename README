@@ -69,7 +69,7 @@ optional):
   * utest assert VALUE1 not == ''
   * utest assert VALUE1 not eq ''    (identical previous line)
   * utest assert VALUE1 is_not blank (identical previous line)
-  * utest end [NAME]
+  * utest end [NAME] [PENDING_MESSAGE]
 
   NOTE:
     The "==" is not an operator here, but another positional argument
@@ -112,10 +112,22 @@ You can have multiple levels of nesting for tests:
       utest end function_one
     utest end MyScript
 
-
 The names don't affect anything, so you can pick any name for the begin/end
 blocks, so long as it doesn't have spaces in it. However, the suggested
 convention is to use function names you're testing.
+
+Adding a second argument to `utest end` call would print a "pending message"
+next to to the script, but it won't actually do anything to prevent commands or
+assertions inside the test from running - it will simply not print their output.
+So remember to remove that argument when you're ready to run your test and
+there's some code in it. Or, it may be used to just temporarily ignore the
+failing tests and you may write something like "(WIP) some assertions fail".
+
+    utest begin MyScript
+      utest begin function_two 'it has two jobs...'
+        ...
+      utest end function_two 'WIP: assertion 2 fails'
+    utest end MyScript
 
 To print descriptions along with the test names in the test-script output -
 prepend the call to your test script file with `PRINT_DESCRIPTIONS=1`,
