@@ -72,8 +72,12 @@ utest() {
   # This indicates the current "begin" section has been completed.
   end() {
     utest_name=$1
+    pending=$2
 
-    if [[ -n "$ASSERTION_RESULTS" ]]; then
+
+    if [[ -n "$pending" ]]; then
+      echo -e " -> ${Yellow}pending${ColorOff}"
+    elif [[ -n "$ASSERTION_RESULTS" ]]; then
       # Multiple assertions inside the unit test
       if [[ "$ASSERTION_RESULTS" == *";;;"* ]]; then
         ASSERTION_RESULTS="\n${CURRENT_UTEST_INDENT_STR}  $ASSERTION_RESULTS"
@@ -81,13 +85,11 @@ utest() {
           sed "s/;;;/\n/g"
       # Single assertion inside the unit test, so no need to enumerate each
       # and print out the result of each assertion on a separate line.
-      elif [[ -n "$pending" ]]; then
-        echo -e " -> ${Yellow}pending${ColorOff}"
       else
         echo -e "$ASSERTION_RESULTS" | sed -E 's/.*assertion [0-9]+//g'
       fi
     elif [[ -n "$UTERR" ]]; then
-      UTERR="$(echo "$UTERR" |\
+      UTERR="$(echo "$UTERR" | sed "s/$NL_SYM/\n/g" | xargs |\
         sed "s/$NL_SYM/    ${CURRENT_UTEST_INDENT_STR}/g")"
       echo -e " -> ${Red}failed"
       echo -e "  ${CURRENT_UTEST_INDENT_STR}ERROR:"
@@ -116,6 +118,21 @@ utest() {
     test -z $DISABLE_BASHJAZZ_DONATION_MSG && _print_donation_msg
   }
 
+  # Technically the same as calling set_var() without $2 containing the value,
+  # but it instead uses `unset VARNAME` and `declare -g$2` (the second argument
+  # to this function providing the additional one-dash args o the declare
+  # built in - such as -a or -A. This is because we cannot know the type of the
+  # variable when re-declaring it (or perhaps were too lazy to had been writing
+  # more unnecessary code to determine that - it is Bash, after all).
+  unset_var() {
+    unset $1
+    declare -g $2 $1
+    if [[ "$1" == "UTOUT" ]]; then
+      unset UTOUT_TAIL
+      declare -g UTOUT_TAIL
+    fi
+  }
+
   set_var() {
     declare -g "$1"="$2"
     if [[ "$1" == "UTOUT" ]]; then
@@ -140,8 +157,13 @@ utest() {
 
     for c in "${CURRENT_TEST_CMDS[@]}"; do
       local _cmd="$(echo "$c" | sed "s/$SP_SYM/ /g")"
-      $_cmd >> $tmp_file 2>&1
-      local cmd_status=${PIPESTATUS[0]}
+      if [[ "$_cmd" == *"#ignore-stdout "* ]]; then
+        _cmd="$(echo "$_cmd" | sed 's/#ignore-stdout //')"
+        $_cmd 2>> $tmp_file
+      else
+        $_cmd >> $tmp_file 2>&1
+      fi
+      local cmd_status=$?
       echo "$cmd_status;;;" >> $tmp_file
     done
 
@@ -175,12 +197,23 @@ utest() {
   }
 
   add_cmd() {
-    CURRENT_TEST_CMDS+=( "$(echo -n "${@}" | sed "s/ /$SP_SYM/g")" )
+    if [[ "$1" == "--"* ]]; then
+      if [[ "$1" == "--ignore-stdout" ]]; then
+        local ignore_stdout="#ignore-stdout "
+      fi
+      shift
+    fi
+    CURRENT_TEST_CMDS+=( "$(echo -n "${ignore_stdout}${@}" | sed "s/ /$SP_SYM/g")" )
   }
 
   assert() {
 
-    if [[ -n "$UTERR" ]]; then
+    if [[ $1 == "--error" ]]; then
+      local continue_on_error=true
+      shift
+    fi
+
+    if [[ -n "$UTERR" ]] && [[ -z $continue_on_error ]]; then
       UTEST_STATUS=1
       return 1;
     fi
@@ -290,8 +323,9 @@ utest() {
         fi
       fi
 
+      returned="${returned:-$NULL_SYM}"
       if test $expected_value_type = 'integer'; then
-        eq_integer "${returned:-$NULL_SYM}" "$expected"
+        eq_integer "$returned" "$expected"
       else
         if [[ $expected =~ ^(empty|blank)?$ ]]; then
           expected=$NULL_SYM
@@ -319,7 +353,13 @@ utest() {
       eq --invert "$@"
     }
 
-    if [[ -n "$UTERR" ]]; then exit 1; fi
+    contains() {
+      if [[ "$1" == *"$2"* ]]; then
+        print_passed
+      else
+        print_error "${negation}to contain" 'value' "$returned" "$expected"
+      fi
+    }
 
     if [[ "$assertion_name" == "==" ]]; then
       assertion_name="eq"
