@@ -123,6 +123,13 @@ So remember to remove that argument when you're ready to run your test and
 there's some code in it. Or, it may be used to just temporarily ignore the
 failing tests and you may write something like "(WIP) some assertions fail".
 
+Adding a second argument to `utest end` call would print a "pending message"
+next to to the script, but it won't actually do anything to prevent commands or
+assertions inside the test from running - it will simply not print their output.
+So remember to remove that argument when you're ready to run your test and
+there's some code in it. Or, it may be used to just temporarily ignore the
+failing tests and you may write something like "(WIP) some assertions fail".
+
     utest begin MyScript
       utest begin function_two 'it has two jobs...'
         ...
@@ -134,7 +141,6 @@ prepend the call to your test script file with `PRINT_DESCRIPTIONS=1`,
 for example:
 
     PRINT_DESCRIPTIONS=1 ./my_script.test.sh
-
 
 TESTING NESTED FUNCTIONS
 ------------------------
@@ -166,6 +172,32 @@ Then, in your test-script, you can write things such as:
     utest assert "$UTOUT" == "I'm function one"
     ...
 
+TESTING ERRORS
+--------------
+Normally, upon calling `utest assert`, if `$UTERR` global variable isn't empty
+(which would be the case when one of the `utest cmd` calls prints anything into
+stderr), the actual error message produced by a process or a function
+that was called through `utest cmd` would be printed into the terminal and the
+particular unit test case would be marked as "failed". However, sometimes, you'd
+actually want to verify the contents of the error message itself. For these
+purposes, you may use the special `--error` flag to the `utest assert` command:
+
+    ...
+    utest cmd MyScript parse --input
+    utest assert --error "$UTERR" contains "argument --input requires a value"
+    ...
+
+In this example we assume that `MyScript parse` expects cli-argument `--input`
+to have value. If it doesn't, it must print the message we're testing against.
+The implementation of this error message print out is the responsibility of the
+author of the script, of course, and its exact wording has nothing to do with
+`utest` script itself. `$UTERR` would always contain anything printed into the
+stderr and, once again, unless the `--ignore` flag is provided when calling
+`utest assert`, any assertion command would be halted and "$UTERR" would simply
+be printed (once) into the terminal.
+
+Note the use of the matcher `contains`, which, of course, can also be used
+in non-error assertions as well.
 
 EXAMPLES
 --------
