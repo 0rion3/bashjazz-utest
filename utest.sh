@@ -208,6 +208,7 @@ utest() {
 
   assert() {
 
+
     if [[ $1 == "--error" ]]; then
       local continue_on_error=true
       shift
@@ -250,10 +251,22 @@ utest() {
       shift
     fi
 
-    local assertion_name="$1"
+    # Assertion name function names
+    _get_assertion_name_from_verb() {
+      case "$1" in
+        'to contain')               echo "contains";;
+        '=='|'eq'|'equal'|'equals') echo "eq";;
+        'is')                       echo "is";;
+        'is_not')                   echo "is_not";;
+        *)
+          >&2 echo "${Red}No such assertion: ${Bold}$1${NoClr}";;
+      esac
+    }
+    assertion_name="$(_get_assertion_name_from_verb "$1")"
     shift
-    local expected="$1"
 
+    # Expected and returned values
+    local expected="$1"
     local expected_value_type=$(_get_value_type "$expected")
     local returned_value_type=$(_get_value_type "$returned")
 
@@ -360,10 +373,6 @@ utest() {
         print_error "${negation}to contain" 'value' "$returned" "$expected"
       fi
     }
-
-    if [[ "$assertion_name" == "==" ]]; then
-      assertion_name="eq"
-    fi
 
     local assertion_result="$($assertion_name $invert "$returned" "$expected")"
 
