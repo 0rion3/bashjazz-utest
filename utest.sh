@@ -254,12 +254,11 @@ utest() {
     # Assertion name function names
     _get_assertion_name_from_verb() {
       case "$1" in
-        'to contain')               echo "contains";;
+        'to_contain'|'contains')    echo "contains";;
         '=='|'eq'|'equal'|'equals') echo "eq";;
         'is')                       echo "is";;
         'is_not')                   echo "is_not";;
-        *)
-          >&2 echo "${Red}No such assertion: ${Bold}$1${NoClr}";;
+        *) echo "${Red}No such assertion: ${Bold}$1${NoClr}" >&2;;
       esac
     }
     assertion_name="$(_get_assertion_name_from_verb "$1")"
@@ -367,7 +366,7 @@ utest() {
     }
 
     contains() {
-      if [[ "$1" == *"$2"* ]]; then
+      if [[ -n "$(echo "$1" | grep "$2")" ]]; then
         print_passed
       else
         print_error "${negation}to contain" 'value' "$returned" "$expected"
